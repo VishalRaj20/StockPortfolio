@@ -7,4 +7,8 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
+  // Define environment variables
+  define: {
+    'process.env.MONGODB_URI': JSON.stringify(process.env.MONGODB_URI)
+  }
 });

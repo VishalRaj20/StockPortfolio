@@ -16,20 +16,22 @@ import {
 interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
+  onLogout: () => void;
   activeView: 'dashboard' | 'portfolio' | 'news';
   onViewChange: (view: 'dashboard' | 'portfolio' | 'news') => void;
   portfolioCount: number;
   newsCount: number;
 }
-
 const Sidebar: React.FC<SidebarProps> = ({
   isOpen,
   onClose,
+  onLogout,
   activeView,
   onViewChange,
   portfolioCount,
   newsCount
 }) => {
+  
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, count: null, description: 'Overview & insights' },
     { id: 'portfolio', label: 'Portfolio', icon: Briefcase, count: portfolioCount, description: 'Manage your stocks' },
@@ -168,7 +170,10 @@ const Sidebar: React.FC<SidebarProps> = ({
             {/* Footer */}
             <div className="p-4 border-t border-gray-200">
               <button
-                onClick={onClose}
+                onClick={() => {
+                        onLogout();
+                        onClose();
+                      }}
                 className="w-full flex items-center space-x-3 p-3 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
               >
                 <LogOut className="w-5 h-5" />

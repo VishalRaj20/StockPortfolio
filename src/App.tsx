@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { TrendingUp} from 'lucide-react';
 import Header from './components/Header';
@@ -14,7 +14,8 @@ import SettingsModal from './components/SettingsModal';
 import { useNotification } from './hooks/useNotification';
 import { useAuth } from './hooks/useAuth';
 import { useRealTimeData } from './hooks/useRealTimeData';
-import { NewsArticle, PortfolioStock, FilterOptions} from './types';
+import { NewsArticle, PortfolioStock, FilterOptions, User } from './types';
+import { mongodbService } from './services/mongodbService';
 import { 
   fetchGeneralNews, 
   fetchPortfolioRelevantNews, 
@@ -38,6 +39,7 @@ function App() {
   const [selectedStock, setSelectedStock] = useState<PortfolioStock | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [geminiApiKey, setGeminiApiKey] = useState('');
+  const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
   const [filters, setFilters] = useState<FilterOptions>({
     sentiment: 'all',
     timeRange: '24h',
@@ -47,13 +49,18 @@ function App() {
   });
   
   const { notification, showNotification, hideNotification } = useNotification();
-  const { user, login, logout, signup, isAuthenticated } = useAuth();
+  const { user, login, logout, signup, isAuthenticated, updateProfile, isLoading: authLoading } = useAuth();
   const { isConnected } = useRealTimeData();
+  
+  // Initialize MongoDB connection
+  useEffect(() => {
+    mongodbService.initialize();
+  }, []);
 
   // Load API key from environment variables or localStorage
   useEffect(() => {
     const envApiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    const savedApiKey = localStorage.getItem('gemini_api_key');
+    const savedApiKey = localStorage.getItem('apiKey');
     
     if (envApiKey && envApiKey !== 'your_gemini_api_key_here') {
       setGeminiApiKey(envApiKey);
@@ -92,7 +99,38 @@ function App() {
 
   useEffect(() => {
     applyFilters();
+    generateSearchSuggestions();
   }, [generalNews, portfolioNews, filters, searchQuery, activeView]);
+  
+  // Generate search suggestions based on current news and portfolio
+  const generateSearchSuggestions = () => {
+    if (!searchQuery || searchQuery.length < 2) {
+      setSearchSuggestions([]);
+      return;
+    }
+    
+    const allNews = [...generalNews, ...portfolioNews];
+    const stockSymbols = portfolioStocks.map(stock => stock.symbol);
+    const stockNames = portfolioStocks.map(stock => stock.name);
+    const newsSources = [...new Set(allNews.map(article => article.source))];
+    const newsKeywords = allNews.flatMap(article => 
+      article.title.split(' ')
+        .filter(word => word.length > 4)
+        .map(word => word.replace(/[^a-zA-Z0-9]/g, ''))
+    );
+    
+    const allTerms = [...stockSymbols, ...stockNames, ...newsSources, ...newsKeywords];
+    const uniqueTerms = [...new Set(allTerms)];
+    
+    const filteredSuggestions = uniqueTerms
+      .filter(term => 
+        term.toLowerCase().includes(searchQuery.toLowerCase()) && 
+        term.toLowerCase() !== searchQuery.toLowerCase()
+      )
+      .slice(0, 5);
+    
+    setSearchSuggestions(filteredSuggestions);
+  };
 
   const loadGeneralNews = async () => {
     if (!geminiApiKey) {
@@ -278,16 +316,29 @@ function App() {
     setPortfolioStocks([]);
     setGeneralNews([]);
     setPortfolioNews([]);
+    setGeminiApiKey('');
     showNotification('info', 'Logged Out', 'See you next time!');
   };
 
   const handleSaveApiKey = (apiKey: string) => {
     setGeminiApiKey(apiKey);
-    localStorage.setItem('gemini_api_key', apiKey);
+    localStorage.setItem('apiKey', apiKey);
     setIsSettingsModalOpen(false);
     showNotification('success', 'API Key Saved', 'Gemini API key updated successfully');
     if (isAuthenticated) {
       loadGeneralNews();
+    }
+  };
+  
+  const handleUpdateUserProfile = async (updates: Partial<User>) => {
+    if (!user) return;
+    
+    try {
+      await updateProfile(updates);
+      showNotification('success', 'Profile Updated', 'Your profile has been updated successfully');
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      showNotification('error', 'Update Failed', 'Failed to update your profile');
     }
   };
 
@@ -372,7 +423,9 @@ function App() {
           onLogout={handleLogout}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
-          isConnected={isConnected}
+          isConnected={!!geminiApiKey && isConnected}
+          onUpdateProfile={handleUpdateUserProfile}
+          searchSuggestions={searchSuggestions}
         />
 
         {/* Main Content */}

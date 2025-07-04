@@ -62,6 +62,7 @@ export interface User {
   name: string;
   email: string;
   createdAt: string;
+  profileImage: string | null;
 }
 
 export interface ApiConfig {
