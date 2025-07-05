@@ -132,7 +132,7 @@ const Header: React.FC<HeaderProps> = ({
               <Menu className="w-5 h-5 text-gray-600" />
             </button>
 
-            <div className="flex items-center space-x-3 lg:hidden">
+            <div className="flex items-center space-x-3 ">
               <div className="p-2 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg">
                 <TrendingUp className="w-5 h-5 text-white" />
               </div>
